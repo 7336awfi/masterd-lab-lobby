@@ -1,0 +1,46 @@
+# MasterD 记忆读写策略
+# 借鉴 OWASP Agent Memory Guard 的声明式策略思路
+policies:
+  - name: block-injection
+    on: write
+    target: L2
+    action: reject
+    when: matches_injection
+    reason: "素材含指令性语句，疑似提示注入"
+
+  - name: protect-core-writer
+    on: write
+    target: L4
+    action: reject
+    when: writer_not_in ["user", "MasterD"]
+    reason: "核心记忆仅限用户与 MasterD 写入"
+
+  - name: protect-core-mutability
+    on: write
+    target: L4
+    action: reject
+    when: is_auto_update
+    reason: "核心记忆不可被自动流程修改"
+
+  - name: promote-only-approved
+    on: write
+    target: L3
+    action: reject
+    when: no_approval_token
+    reason: "未经审核签发凭证，禁止写入认知层"
+
+  - name: flag-flood
+    on: write
+    target: L2
+    action: flag
+    when: same_source_rate_gt
+    params: {count: 20, window_min: 15}
+    reason: "同一来源短时间大量涌入，疑似刷量/投毒"
+
+  - name: flag-size-anomaly
+    on: write
+    target: L2
+    action: flag
+    when: size_gt_rolling_avg_x
+    params: {factor: 10}
+    reason: "内容体积异常，疑似异常写入"
