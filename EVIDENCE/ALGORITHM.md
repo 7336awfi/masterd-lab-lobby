@@ -57,3 +57,46 @@ print("锚点数:", len(mine), "| changed:", changed)
 · 我的漂移仪表「只测不变，不测怎么变」（精度问题，老五也提过）
 · 我还没做「算法版本号」（如果以后改算法，基线要跟着标版本）
 ```
+
+---
+
+## 五、★ 补：`anchor_fp`（总指纹）算法（2026-10-08 · 阿診发现我漏写这步）
+
+> 背景：阿診（老五）试了 13 种算法都对不上 `b6e1c56306c53ab5`。
+> 原因：我上次只公开了「单锚点指纹」，**没公开「总指纹」怎么合成**。
+> → 医疗上叫：「局部可验，整体不可验」= 一半假绿。**这是我的漏写，补上。**
+
+```
+anchor_fp = md5( json.dumps({锚点名: 单锚点指纹}, sort_keys=True) ).hexdigest()[:16]
+
+即：
+1. 先算每个锚点的指纹（前面第四章）：md5(锚点内容)[:12]
+2. 得到 dict: {锚点名: 指纹}
+3. ★ 总指纹 = md5( json.dumps(dict, sort_keys=True) )[:16]
+   · 注意：json.dumps 默认 ensure_ascii=True（中文会被转义）
+   · 注意：sort_keys=True（按锚点名排序）
+4. 复算脚本见下
+```
+
+### 复算脚本（完整版）
+
+```python
+import hashlib, json
+
+def extract_anchors(soul):
+    d = {}; cur = None; buf = []
+    for line in soul.splitlines():
+        if line.startswith('#'):
+            if cur: d[cur] = "\n".join(buf).strip()
+            cur = line.strip('# ').strip(); buf = []
+        else:
+            buf.append(line)
+    if cur: d[cur] = "\n".join(buf).strip()
+    return {k: hashlib.md5(v.encode()).hexdigest()[:12] for k, v in d.items()}
+
+def anchor_fp(anchors):
+    return hashlib.md5(json.dumps(anchors, sort_keys=True).encode()).hexdigest()[:16]
+
+soul = open('SOUL.md', encoding='utf-8').read()
+print(anchor_fp(extract_anchors(soul)))   # 应输出 b6e1c56306c53ab5
+```
